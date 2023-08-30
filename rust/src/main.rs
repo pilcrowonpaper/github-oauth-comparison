@@ -78,11 +78,11 @@ async fn handle_authorization() -> Result<Response<Full<Bytes>>, hyper::http::Er
         authorization_url_query.encode()
     );
     let state_cookie = format!("state={state}; Path=/; Max-Age=3600; HttpOnly");
-    return Response::builder()
+    Response::builder()
         .status(302)
         .header(SET_COOKIE, state_cookie)
         .header(LOCATION, authorization_url)
-        .body(Full::new(Bytes::new()));
+        .body(Full::new(Bytes::new()))
 }
 
 async fn handle_callback(
@@ -112,12 +112,12 @@ async fn handle_callback(
         }
     };
     let user = get_github_user(access_token.as_str()).await.unwrap();
-    return Response::builder()
+    Response::builder()
         .status(200)
         .body(Full::new(Bytes::from(format!(
             "User ID: {}\nUsername: {}",
             user.id, user.login
-        ))));
+        ))))
 }
 
 #[derive(Serialize, Deserialize)]
@@ -175,8 +175,8 @@ async fn get_github_user(access_token: &str) -> Result<GithubUser, reqwest::Erro
 
 fn parse_cookie(cookie: &str) -> HashMap<String, String> {
     let mut map: HashMap<String, String> = HashMap::new();
-    for cookie_item in cookie.split(";") {
-        match cookie_item.split_once("=") {
+    for cookie_item in cookie.split(';') {
+        match cookie_item.split_once('=') {
             Some((key, value)) => {
                 map.insert(key.to_owned(), value.to_owned());
             }
@@ -188,8 +188,8 @@ fn parse_cookie(cookie: &str) -> HashMap<String, String> {
 
 fn parse_query(query: &str) -> SearchParams {
     let mut search_params = SearchParams::new();
-    for query_item in query.split("&") {
-        match query_item.split_once("=") {
+    for query_item in query.split('&') {
+        match query_item.split_once('=') {
             Some((key, value)) => {
                 search_params.insert(key, value);
             }
@@ -227,8 +227,8 @@ impl SearchParams {
 fn read_dot_env() {
     let dot_env = std::fs::read_to_string("../.env").expect(".env not found");
     for item in dot_env.lines() {
-        if let Some((key, value)) = item.split_once("=") {
-            if value.starts_with("\"") && value.ends_with("\"") {
+        if let Some((key, value)) = item.split_once('=') {
+            if value.starts_with('"') && value.ends_with('"') {
                 std::env::set_var(key, &value[1..(value.chars().count() - 1)]);
             } else {
                 std::env::set_var(key, value);
@@ -238,5 +238,5 @@ fn read_dot_env() {
 }
 
 fn get_env_var_or_panic(var_name: &str) -> String {
-    std::env::var(var_name).expect(format!("Missing env var {}", var_name).as_str())
+    std::env::var(var_name).unwrap_or_else(|_| panic!("Missing env var {}", var_name))
 }
