@@ -1,5 +1,6 @@
 import http from "http";
 import fs from "fs/promises";
+import crypto from "crypto";
 
 await loadEnv();
 const server = http.createServer(handleRequest);
@@ -37,7 +38,7 @@ async function handleAuthorization(
   _: http.IncomingMessage,
   response: http.ServerResponse
 ): Promise<void> {
-  const state = "abc";
+  const state = generateRandomString(41);
   const authorizationUrl = new URL("https://github.com/login/oauth/authorize");
   authorizationUrl.searchParams.set(
     "client_id",
@@ -131,4 +132,14 @@ async function loadEnv(): Promise<void> {
     }
     process.env[key] = value;
   }
+}
+
+function generateRandomString(length: number): string {
+  const alphabet =
+    "1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  let result = "";
+  while (result.length < length) {
+    result += alphabet[crypto.randomInt(alphabet.length - 1)];
+  }
+  return result;
 }
