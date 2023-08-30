@@ -19,8 +19,7 @@ func loadEnv() {
 	keyValuePairs := strings.Split(file, "\n")
 	for _, pair := range keyValuePairs {
 		items := strings.SplitN(pair, "=", 2)
-		key := items[0]
-		value := items[1]
+		key, value := items[0], items[1]
 		if value[0] == '"' && value[len(value)-1] == '"' {
 			value = value[1 : len(value)-1]
 		}
