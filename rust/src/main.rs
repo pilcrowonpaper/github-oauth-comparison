@@ -6,6 +6,7 @@ use hyper::body::Bytes;
 use hyper::header::{LOCATION, SET_COOKIE};
 use hyper::{Method, Request, Response, StatusCode};
 use hyper_util::rt::TokioIo;
+use rand::distributions::Alphanumeric;
 use tokio::net::TcpListener;
 
 use rand::Rng;
@@ -40,7 +41,9 @@ async fn handle_request(
     request: Request<hyper::body::Incoming>,
 ) -> Result<Response<Full<Bytes>>, hyper::http::Error> {
     match (request.method(), request.uri().path()) {
-        (&Method::GET, "/") => Ok(Response::new(Full::new(Bytes::from("/login/github to login with Github!")))),
+        (&Method::GET, "/") => Ok(Response::new(Full::new(Bytes::from(
+            "/login/github to login with Github!",
+        )))),
         (&Method::GET, "/login/github") => handle_authorization().await,
         (&Method::GET, "/login/github/callback") => handle_callback(request).await,
 
@@ -53,16 +56,12 @@ async fn handle_request(
     }
 }
 
-fn generate_random_string(length: u32) -> String {
-    let mut rng = rand::thread_rng();
-    let alphabet = "1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    let alphabet_length = alphabet.chars().count();
-    let mut result = String::from("");
-    for _ in 0..length {
-        let index = rng.gen_range(0..alphabet_length);
-        result.push(alphabet.chars().nth(index).unwrap())
-    }
-    return result;
+fn generate_random_string(length: usize) -> String {
+    rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(length)
+        .map(char::from)
+        .collect()
 }
 
 async fn handle_authorization() -> Result<Response<Full<Bytes>>, hyper::http::Error> {
@@ -89,13 +88,13 @@ async fn handle_authorization() -> Result<Response<Full<Bytes>>, hyper::http::Er
 async fn handle_callback(
     request: Request<hyper::body::Incoming>,
 ) -> Result<Response<Full<Bytes>>, hyper::http::Error> {
-    let mut query = parse_query(request.uri().query().unwrap_or(""));
-    let state = query.get("state").unwrap_or("");
+    let mut query = parse_query(request.uri().query().unwrap_or_default());
+    let state = query.get("state").unwrap_or_default();
     let cookie = parse_cookie(
         request
             .headers()
             .get("Cookie")
-            .map_or("", |header_value| header_value.to_str().unwrap_or("")),
+            .map_or("", |header_value| header_value.to_str().unwrap_or_default()),
     );
     let state_cookie = cookie.get("state").map_or("", |v| v.as_str());
     if state != state_cookie {
@@ -103,7 +102,7 @@ async fn handle_callback(
             .status(403)
             .body(Full::new(Bytes::new()));
     }
-    let code = query.get("code").unwrap_or("");
+    let code = query.get("code").unwrap_or_default();
     let access_token = match exchange_authorization_code(code).await {
         Ok(v) => v,
         Err(_) => {
@@ -227,7 +226,7 @@ impl SearchParams {
 
 fn read_dot_env() {
     let dot_env = std::fs::read_to_string("../.env").expect(".env not found");
-    for item in dot_env.split("\n") {
+    for item in dot_env.lines() {
         if let Some((key, value)) = item.split_once("=") {
             if value.starts_with("\"") && value.ends_with("\"") {
                 std::env::set_var(key, &value[1..(value.chars().count() - 1)]);
@@ -239,5 +238,5 @@ fn read_dot_env() {
 }
 
 fn get_env_var_or_panic(var_name: &str) -> String {
-    return std::env::var(var_name).expect(format!("Missing env var {}", var_name).as_str());
+    std::env::var(var_name).expect(format!("Missing env var {}", var_name).as_str())
 }
